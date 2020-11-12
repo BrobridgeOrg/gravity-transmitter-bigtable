@@ -1,0 +1,14 @@
+[service]
+port = 44143
+
+[database]
+host = "0.0.0.0"
+port = 32768
+secure = false
+username = "postgres"
+password = "1qazXSW@"
+dbname = "gravity"
+
+[gcp]
+instance_id = "gravity"
+project_id = "gravity-bigtable"
