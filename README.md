@@ -1,14 +1,14 @@
-# Gravity Transmitter for Postgres
+# Gravity Transmitter for GCP BigTable
 
-The gravity transmitter is used to write data to PostgreSQL database.
+The gravity transmitter is used to write data to GCP BigTable database.
 
 ## Installation
 
 You can compile pilotware with the following commands:
 
 ```shell
-go generate ./cmd/gravity-transmitter-postgres
-go build ./cmd/gravity-transmitter-postgres
+go generate ./cmd/gravity-transmitter-bigtable
+go build ./cmd/gravity-transmitter-bigtable
 ```
 
 ## License
@@ -17,4 +17,4 @@ Licensed under the MIT License
 
 ## Authors
 
-Copyright(c) 2020 Fred Chien <<fred@brobridge.com>>
+Copyright(c) 2020 Dagin Wu <<daginwu@brobridge.com>>
