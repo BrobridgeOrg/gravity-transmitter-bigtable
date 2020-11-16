@@ -1,6 +1,7 @@
 package writer
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
@@ -8,13 +9,11 @@ import (
 
 	"cloud.google.com/go/bigtable"
 	transmitter "github.com/BrobridgeOrg/gravity-api/service/transmitter"
-	_ "github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
 const (
-	tableName        = "Gravity-demo"
 	columnFamilyName = "gravity-cf"
 )
 
@@ -58,8 +57,8 @@ func NewWriter() *Writer {
 func (writer *Writer) Init() error {
 
 	// Read configuration file
-	writer.dbInfo.ProjectID = viper.GetString("gcp.instance_id")
-	writer.dbInfo.InstanceID = viper.GetString("gcp.project_id")
+	writer.dbInfo.ProjectID = viper.GetString("gcp.project_id")
+	writer.dbInfo.InstanceID = viper.GetString("gcp.instance_id")
 
 	// Bigtable connection
 	ctx := context.Background()
@@ -87,6 +86,10 @@ func (writer *Writer) Init() error {
 }
 
 func (writer *Writer) run() {
+
+	// Dagin Note
+	// Notice that in BigTable we using GCP-SDK don't need to run SQL query
+
 	// for {
 	// 	select {
 	// 	case cmd := <-writer.commands:
@@ -96,6 +99,7 @@ func (writer *Writer) run() {
 	// 		}
 	// 	}
 	// }
+
 }
 
 func (writer *Writer) ProcessData(record *transmitter.Record) error {
@@ -118,7 +122,142 @@ func (writer *Writer) ProcessData(record *transmitter.Record) error {
 	return nil
 }
 
-// WTFF is this ??
+// Method you can choose
+
+func (writer *Writer) InsertRecord(record *transmitter.Record) error {
+
+	// Get record define
+	recordDef := writer.GetDefinition(record)
+
+	// Keep recordDef but not using beacause SDK implement that
+	return writer.insertBigTable(record, recordDef)
+}
+
+func (writer *Writer) UpdateRecord(record *transmitter.Record) error {
+
+	// Get record define
+	recordDef := writer.GetDefinition(record)
+
+	// Keep recordDef but not using beacause SDK implement that
+	return writer.updateBigTable(record, recordDef)
+}
+
+func (writer *Writer) DeleteRecord(record *transmitter.Record) error {
+
+	// Create ctx for bigtable writer
+	ctx := context.Background()
+
+	// Get bigtable client
+	tbl := writer.db.Open(record.Table)
+
+	// Allocate BigTable data structure
+	var rowKey interface{}
+	mut := bigtable.NewMutation()
+
+	for _, field := range record.Fields {
+
+		// Primary key
+		if field.IsPrimary {
+
+			rowKey = writer.GetValue(field.Value)
+			break
+		}
+	}
+	// Set delete
+	mut.DeleteRow()
+
+	// Assert for rowKey and write to BigTable
+	err := tbl.Apply(ctx, rowKey.(string), mut)
+
+	// BigTable write error
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (writer *Writer) updateBigTable(record *transmitter.Record, recordDef *RecordDef) error {
+
+	// Create ctx for bigtable writer
+	ctx := context.Background()
+
+	// Get bigtable client
+	tbl := writer.db.Open(record.Table)
+
+	// Allocate BigTable data structure
+	var rowKey interface{}
+	mut := bigtable.NewMutation()
+	buf := new(bytes.Buffer)
+
+	// Indexing from gRPC
+	for _, field := range record.Fields {
+		if field.IsPrimary {
+			rowKey = writer.GetValue(field.Value)
+			continue
+		}
+
+		// Transfer data to byte
+		err := binary.Write(buf, binary.BigEndian, writer.GetValue(field.Value))
+
+		if err != nil {
+			return err
+		}
+
+		mut.Set(columnFamilyName, field.Name, bigtable.Now(), buf.Bytes())
+	}
+
+	// Assert for rowKey and write to BigTable
+	err := tbl.Apply(ctx, rowKey.(string), mut)
+
+	// BigTable write error
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (writer *Writer) insertBigTable(record *transmitter.Record, recordDef *RecordDef) error {
+
+	// Create ctx for bigtable writer
+	ctx := context.Background()
+
+	// Get bigtable client
+	tbl := writer.db.Open(record.Table)
+
+	// Allocate BigTable data structure
+	var rowKey interface{}
+	mut := bigtable.NewMutation()
+	buf := new(bytes.Buffer)
+
+	// Indexing from gRPC
+	for _, field := range record.Fields {
+		if field.IsPrimary {
+			rowKey = writer.GetValue(field.Value)
+			continue
+		}
+
+		// Transfer data to byte
+		err := binary.Write(buf, binary.BigEndian, writer.GetValue(field.Value))
+
+		if err != nil {
+			return err
+		}
+
+		mut.Set(columnFamilyName, field.Name, bigtable.Now(), buf.Bytes())
+	}
+
+	// Assert for rowKey and write to BigTable
+	err := tbl.Apply(ctx, rowKey.(string), mut)
+
+	// BigTable write error
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
 
 func (writer *Writer) GetValue(value *transmitter.Value) interface{} {
 
@@ -173,90 +312,4 @@ func (writer *Writer) GetDefinition(record *transmitter.Record) *RecordDef {
 	}
 
 	return recordDef
-}
-
-// Method you can choose
-
-func (writer *Writer) InsertRecord(record *transmitter.Record) error {
-
-	// Create ctx for bigtable writer
-	ctx := context.Background()
-
-	// Get bigtable client
-	tbl := writer.db.Open(record.Table)
-
-	// Allocate muts and row
-	muts := make([]*bigtable.Mutation, len(record.Fields))
-	rowKeys := make([]string, len(record.Fields))
-
-	fmt.Println("Start sending data to BigTable ...")
-
-	// Read Table data from gRPC
-	for i, field := range record.Fields {
-
-		muts[i] = bigtable.NewMutation()
-		muts[i].Set(columnFamilyName, field.Name, bigtable.Now(), []byte(fmt.Sprintf("%v", writer.GetValue(field.Value))))
-
-		if field.IsPrimary {
-			rowKeys[i] = field.Name
-		}
-
-	}
-
-	// Writing ...
-	rowErrs, err := tbl.ApplyBulk(ctx, rowKeys, muts)
-
-	if err != nil {
-		log.Fatalf("Could not apply bulk row mutation: %v", err)
-	}
-
-	if rowErrs != nil {
-		for _, rowErr := range rowErrs {
-			log.Printf("Error writing row: %v", rowErr)
-		}
-		log.Fatalf("Could not write some rows")
-	}
-
-	// Fred under this line
-	recordDef := writer.GetDefinition(record)
-
-	return writer.insert(record.Table, recordDef)
-}
-
-func (writer *Writer) UpdateRecord(record *transmitter.Record) error {
-
-	return nil
-}
-
-func (writer *Writer) DeleteRecord(record *transmitter.Record) error {
-
-	return nil
-}
-
-func (writer *Writer) update(table string, recordDef *RecordDef) (bool, error) {
-
-	return false, nil
-}
-
-func (writer *Writer) insert(table string, recordDef *RecordDef) error {
-
-	paramLength := len(recordDef.ColumnDefs) + 1
-
-	// Allocation
-	colNames := make([]string, 0, paramLength)
-	colNames = append(colNames, recordDef.PrimaryColumn)
-	valNames := make([]string, 0, paramLength)
-	valNames = append(valNames, ":primary_val")
-
-	// Preparing columns and bindings
-	for _, def := range recordDef.ColumnDefs {
-		colNames = append(colNames, `"`+def.ColumnName+`"`)
-		valNames = append(valNames, `:`+def.BindingName)
-	}
-
-	return nil
-}
-
-func insertBigTable() {
-
 }
