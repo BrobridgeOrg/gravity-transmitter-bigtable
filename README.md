@@ -2,15 +2,27 @@
 
 The gravity transmitter is used to write data to GCP BigTable database.
 
-## Installation
+## Pre-require
+
+You need create Table to Bigtable first
+first need to install gcp cloud SDK 
+and run command under to create table
+
+Important: please set up the InstanceID and ProjectID
+
+```shell
+go run bigtable_create_table
+```
+
+## Installation and Run
 
 You can compile pilotware with the following commands:
 
 ```shell
 go generate ./cmd/gravity-transmitter-bigtable
 go build ./cmd/gravity-transmitter-bigtable
+go ./gravity-transmitter-bigtable
 ```
-
 ## License
 
 Licensed under the MIT License

@@ -13,8 +13,6 @@ const (
 	columnFamilyName = "gravity-cf"
 )
 
-var greetings = []string{"Hello World!", "Hello Cloud Bigtable!", "Hello golang!"}
-
 // sliceContains reports whether the provided string is present in the given slice of strings.
 func sliceContains(list []string, target string) bool {
 	for _, s := range list {
