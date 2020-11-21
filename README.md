@@ -5,7 +5,9 @@ The gravity transmitter is used to write data to GCP BigTable database.
 ## Pre-require
 
 You need create Table to Bigtable first
+
 first need to install gcp cloud SDK 
+
 and run command under to create table
 
 Important: please set up the InstanceID and ProjectID
