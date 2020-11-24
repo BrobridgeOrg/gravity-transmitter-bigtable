@@ -155,14 +155,13 @@ func (writer *Writer) DeleteRecord(record *transmitter.Record) error {
 	mut := bigtable.NewMutation()
 
 	for _, field := range record.Fields {
-
 		// Primary key
 		if field.IsPrimary {
-
 			rowKey = writer.GetValue(field.Value)
 			break
 		}
 	}
+
 	// Set delete
 	mut.DeleteRow()
 

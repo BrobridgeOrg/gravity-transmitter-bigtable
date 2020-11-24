@@ -1,16 +1,21 @@
 package writer
 
-import "fmt"
+import (
+	"context"
+)
 
 func (writer *Writer) Truncate(table string) error {
 
-	// sqlStr := fmt.Sprintf(`TRUNCATE TABLE "%s"`, table)
-	// _, err := writer.db.Exec(sqlStr)
-	// if err != nil {
-	// 	return err
-	// }
+	// Create ctx for bigtable writer
+	ctx := context.Background()
 
-	fmt.Println("Bigtable Truncate" + table)
+	// Get bigtable admin client
+	err := writer.adminclient.DropAllRows(ctx, table)
+
+	// If Drop is error
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
