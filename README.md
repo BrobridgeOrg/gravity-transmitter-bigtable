@@ -18,10 +18,9 @@ go run bigtable_create_table
 
 ## Installation and Run
 
-You can compile pilotware with the following commands:
+You can compile gravity-transmitter-bigtable with the following commands:
 
 ```shell
-go generate ./cmd/gravity-transmitter-bigtable
 go build ./cmd/gravity-transmitter-bigtable
 go ./gravity-transmitter-bigtable
 ```
